@@ -1,0 +1,264 @@
+---
+Parameters:
+  EnvironmentName:
+    Description: An Environment name that will be prefixed to resources
+    Type: String
+    Default: "Test"
+  PipelineName:
+    Description: Name of the pipeline
+    Type: String
+    Default: test
+
+  BranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: main
+
+  RepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: aws-devops-demos
+
+  ApplicationName:
+    Description: CodeDeploy application name
+    Type: String
+    Default: DemoApp
+
+  DeploymentGroupName:
+    Description: Application Deployment Group Name
+    Type: String
+    Default: Dev
+
+  GithubToken:
+    Type: String
+    NoEcho: true
+
+  GithubOwner:
+    Type: String
+    Default: AhmedMojahed`
+
+  ECSCluster:
+    Type: String
+
+  ECSServiceName:
+    Type: String
+    Default: nginx-hello-halan
+
+  BuildSpecPath:
+    Type: String
+    Default: buildspec.yml
+
+  ECRRepoName:
+    Type: String
+    Default: ecs-repo
+
+Resources:
+  #PipeLine
+  #Role
+  CodePipelineServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: AWS-CodePipeline-Service-3
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "codecommit:CancelUploadArchive"
+                  - "codecommit:GetBranch"
+                  - "codecommit:GetCommit"
+                  - "codecommit:GetUploadArchiveStatus"
+                  - "codecommit:UploadArchive"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "codedeploy:CreateDeployment"
+                  - "codedeploy:GetApplicationRevision"
+                  - "codedeploy:GetDeployment"
+                  - "codedeploy:GetDeploymentConfig"
+                  - "codedeploy:RegisterApplicationRevision"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "codebuild:BatchGetBuilds"
+                  - "codebuild:StartBuild"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "devicefarm:ListProjects"
+                  - "devicefarm:ListDevicePools"
+                  - "devicefarm:GetRun"
+                  - "devicefarm:GetUpload"
+                  - "devicefarm:CreateUpload"
+                  - "devicefarm:ScheduleRun"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                  - "lambda:ListFunctions"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "iam:PassRole"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "elasticbeanstalk:*"
+                  - "ec2:*"
+                  - "elasticloadbalancing:*"
+                  - "autoscaling:*"
+                  - "cloudwatch:*"
+                  - "s3:*"
+                  - "sns:*"
+                  - "cloudformation:*"
+                  - "rds:*"
+                  - "sqs:*"
+                  - "ecs:*"
+                Resource: "*"
+
+  #Github connection Webhook
+  AppPipelineWebhook:
+    Type: "AWS::CodePipeline::Webhook"
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GithubToken
+      Filters:
+        - JsonPath: $.ref
+          MatchEquals: "refs/heads/{Branch}"
+      TargetPipeline: !Ref AppPipeline
+      TargetAction: Source
+      Name: AppPipelineWebhook
+      TargetPipelineVersion: !GetAtt AppPipeline.Version
+      RegisterWithThirdParty: true
+
+  # CodePipeline
+  AppPipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      Name: github-events-pipeline
+      ArtifactStore:
+        Type: S3
+        Location: !Ref CodePipelineArtifactStoreBucket
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref RepositoryName
+                Branch: !Ref BranchName
+                OAuthToken: !Ref GithubToken
+                PollForSourceChanges: false
+              RunOrder: 1
+
+        - Name: Build
+          ActionTypeId:
+            Category: Build
+            Owner: AWS
+            Provider: CodeBuild
+            Version: 1
+          InputArtifacts:
+            - SourceOutput
+          OutputArtifacts:
+            - BuildOutput
+          Configuration:
+            ProjectName: !Ref CodeBuildProject
+        - Name: Deploy
+          Actions:
+            - Name: Deploy
+              InputArtifacts:
+                - Name: BuildOut
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CodeDeploy
+              Configuration:
+                ApplicationName: !Ref ApplicationName
+                DeploymentGroupName: !Ref DeploymentGroupName
+              RunOrder: 1
+
+  # s3 Artifacts
+  CodePipelineArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  CodePipelineArtifactStoreBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CodePipelineArtifactStoreBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnEncryptedObjectUploads
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource:
+              !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  #Codebuild
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Ref "BuildSpecPath"
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: REPOSITORY_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}
+          - Name: ECR_SERVER
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/
+          - Name: ECS_SERVICE_NAME
+            Value:
+              Fn::ImportValue: !Sub ${EnvironmentName}-ECSService
+      Name: !Sub ${EnvironmentName}-BuildProject
+      ServiceRole: !Ref CodeBuildServiceRole
+
+  #ecs / ecr
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    Properties:
+      RepositoryName: !Ref ECRRepoName
