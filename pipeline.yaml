@@ -17,17 +17,17 @@ Parameters:
   RepositoryName:
     Description: GitHub repository name
     Type: String
-    Default: aws-devops-demos
+    Default: cicd-demo
 
-  ApplicationName:
-    Description: CodeDeploy application name
-    Type: String
-    Default: DemoApp
+  # ApplicationName:
+  #   Description: CodeDeploy application name
+  #   Type: String
+  #   Default: DemoApp
 
-  DeploymentGroupName:
-    Description: Application Deployment Group Name
-    Type: String
-    Default: Dev
+  # DeploymentGroupName:
+  #   Description: Application Deployment Group Name
+  #   Type: String
+  #   Default: Dev
 
   GithubToken:
     Type: String
@@ -37,20 +37,25 @@ Parameters:
     Type: String
     Default: AhmedMojahed
 
-  ECSCluster:
-    Type: String
+  # ECSCluster:
+  #   Type: String
 
-  ECSServiceName:
-    Type: String
-    Default: nginx-hello-halan
+  # ECSServiceName:
+  #   Type: String
+  #   Default: nginx-hello-halan
 
   BuildSpecPath:
     Type: String
     Default: buildspec.yml
 
-  ECRRepoName:
+  # ECRRepoName:
+  Repository:
     Type: String
-    Default: ecs-repo
+    Default: ecs-test-repo
+
+  ArtifatBucket:
+    Type: String
+    Default: pipeline-testing-bucket-mogahed-1
 
 Resources:
   #PipeLine
@@ -127,20 +132,20 @@ Resources:
                 Resource: "*"
 
   #Github connection Webhook
-  AppPipelineWebhook:
-    Type: "AWS::CodePipeline::Webhook"
-    Properties:
-      Authentication: GITHUB_HMAC
-      AuthenticationConfiguration:
-        SecretToken: !Ref GithubToken
-      Filters:
-        - JsonPath: $.ref
-          MatchEquals: "refs/heads/{Branch}"
-      TargetPipeline: !Ref AppPipeline
-      TargetAction: Source
-      Name: AppPipelineWebhook
-      TargetPipelineVersion: !GetAtt AppPipeline.Version
-      RegisterWithThirdParty: true
+  # AppPipelineWebhook:
+  #   Type: "AWS::CodePipeline::Webhook"
+  #   Properties:
+  #     Authentication: GITHUB_HMAC
+  #     AuthenticationConfiguration:
+  #       SecretToken: !Ref GithubToken
+  #     Filters:
+  #       - JsonPath: $.ref
+  #         MatchEquals: "refs/heads/{Branch}"
+  #     TargetPipeline: !Ref AppPipeline
+  #     TargetAction: Source
+  #     Name: AppPipelineWebhook
+  #     TargetPipelineVersion: !GetAtt AppPipeline.Version
+  #     RegisterWithThirdParty: true
 
   # CodePipeline
   AppPipeline:
@@ -149,7 +154,7 @@ Resources:
       Name: github-events-pipeline
       ArtifactStore:
         Type: S3
-        Location: !Ref CodePipelineArtifactStoreBucket
+        Location: !Ref ArtifatBucket
       RoleArn: !GetAtt CodePipelineServiceRole.Arn
       Stages:
         - Name: Source
@@ -158,82 +163,92 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
-                Version: 1
+                Version: "1"
                 Provider: GitHub
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                # Owner: !Ref GitHubOwnerc
+                Owner: !Ref GithubOwner
                 Repo: !Ref RepositoryName
                 Branch: !Ref BranchName
                 OAuthToken: !Ref GithubToken
-                PollForSourceChanges: false
+                # PollForSourceChanges: false
               RunOrder: 1
-
         - Name: Build
-          ActionTypeId:
-            Category: Build
-            Owner: AWS
-            Provider: CodeBuild
-            Version: 1
-          InputArtifacts:
-            - SourceOutput
-          OutputArtifacts:
-            - BuildOutput
-          Configuration:
-            ProjectName: !Ref CodeBuildProject
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              RunOrder: 1
         - Name: Deploy
           Actions:
             - Name: Deploy
-              InputArtifacts:
-                - Name: BuildOut
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
-                Version: 1
-                Provider: CodeDeploy
+                Version: "1"
+                Provider: ECS
+              InputArtifacts:
+                - Name: BuildOutput
               Configuration:
-                ApplicationName: !Ref ApplicationName
-                DeploymentGroupName: !Ref DeploymentGroupName
+                ClusterName:
+                  Fn::ImportValue: !Sub "${EnvironmentName}-ECS-CLUSTER"
+                ServiceName:
+                  Fn::ImportValue: !Sub ${EnvironmentName}-ECSService
+                FileName: imagedefinitions.json
               RunOrder: 1
 
   # s3 Artifacts
   CodePipelineArtifactStoreBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
+      BucketName: !Ref ArtifatBucket
       VersioningConfiguration:
         Status: Enabled
 
-  CodePipelineArtifactStoreBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref CodePipelineArtifactStoreBucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: DenyUnEncryptedObjectUploads
-            Effect: Deny
-            Principal: "*"
-            Action: s3:PutObject
-            Resource:
-              !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
-            Condition:
-              StringNotEquals:
-                s3:x-amz-server-side-encryption: aws:kms
-          - Sid: DenyInsecureConnections
-            Effect: Deny
-            Principal: "*"
-            Action: s3:*
-            Resource:
-              !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
-            Condition:
-              Bool:
-                aws:SecureTransport: false
+  # CodePipelineArtifactStoreBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref CodePipelineArtifactStoreBucket
+  #     PolicyDocument:
+  #       Version: 2012-10-17
+  #       Statement:
+  #         - Sid: DenyUnEncryptedObjectUploads
+  #           Effect: Deny
+  #           Principal: "*"
+  #           Action: s3:PutObject
+  #           Resource:
+  #             !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
+  #           Condition:
+  #             StringNotEquals:
+  #               s3:x-amz-server-side-encryption: aws:kms
+  #         - Sid: DenyInsecureConnections
+  #           Effect: Deny
+  #           Principal: "*"
+  #           Action: s3:*
+  #           Resource:
+  #             !Join ["", [!GetAtt CodePipelineArtifactStoreBucket.Arn, "/*"]]
+  #           Condition:
+  #             Bool:
+  #               aws:SecureTransport: false
 
   #Codebuild
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
+      Name: !Sub ${EnvironmentName}-BuildProject
+      ServiceRole: !Ref CodeBuildServiceRole
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -253,8 +268,7 @@ Resources:
           - Name: ECS_SERVICE_NAME
             Value:
               Fn::ImportValue: !Sub ${EnvironmentName}-ECSService
-      Name: !Sub ${EnvironmentName}-BuildProject
-      ServiceRole: !Ref
+
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -278,7 +292,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - ecr:GetAuthorizationToken
-              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactStoreBucket}/*
+              - Resource: !Sub arn:aws:s3:::${ArtifatBucket}/*
                 Effect: Allow
                 Action:
                   - s3:GetObject
@@ -294,10 +308,9 @@ Resources:
                   - ecr:InitiateLayerUpload
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
-
-  #ecs / ecr
-  Repository:
-    Type: AWS::ECR::Repository
-    DeletionPolicy: Retain
-    Properties:
-      RepositoryName: !Ref ECRRepoName
+  # #ecs / ecr
+  # Repository:
+  #   Type: AWS::ECR::Repository
+  #   DeletionPolicy: Retain
+  #   Properties:
+  #     RepositoryName: !Ref ECRRepoName
