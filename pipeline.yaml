@@ -48,8 +48,8 @@ Parameters:
     Type: String
     Default: buildspec.yml
 
-  # ECRRepoName:
-  Repository:
+  ECRRepoName:
+    # Repository:
     Type: String
     Default: ecs-test-repo
 
@@ -249,6 +249,7 @@ Resources:
     Properties:
       Name: !Sub ${EnvironmentName}-BuildProject
       ServiceRole: !Ref CodeBuildServiceRole
+      BuildBadge: true
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -256,6 +257,7 @@ Resources:
         BuildSpec: !Ref "BuildSpecPath"
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
+        # Image: aws/codebuild/docker:17.09.0
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
@@ -309,8 +311,9 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
   # #ecs / ecr
-  # Repository:
-  #   Type: AWS::ECR::Repository
-  #   DeletionPolicy: Retain
-  #   Properties:
-  #     RepositoryName: !Ref ECRRepoName
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Delete
+    # DeletionPolicy: Retain
+    Properties:
+      RepositoryName: !Ref ECRRepoName
