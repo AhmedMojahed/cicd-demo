@@ -40,9 +40,9 @@ Parameters:
   # ECSCluster:
   #   Type: String
 
-  # ECSServiceName:
-  #   Type: String
-  #   Default: nginx-hello-halan
+  ECSServiceName:
+    Type: String
+    Default: nginx
 
   BuildSpecPath:
     Type: String
@@ -203,7 +203,7 @@ Resources:
                 ClusterName:
                   Fn::ImportValue: !Sub "${EnvironmentName}-ECS-CLUSTER"
                 ServiceName:
-                  Fn::ImportValue: !Sub ${EnvironmentName}-ECSService
+                  Fn::ImportValue: !Sub ${EnvironmentName}-${ECSServiceName}
                 FileName: imagedefinitions.json
               RunOrder: 1
 
@@ -257,14 +257,14 @@ Resources:
         BuildSpec: !Ref "BuildSpecPath"
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        # Image: aws/codebuild/docker:17.09.0
-        Image: aws/codebuild/docker:20.10.6
+        Image: aws/codebuild/docker:17.09.0
+        # Image: aws/codebuild/docker:19.03.15
         # Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
           - Name: CONTAINER_NAME
             Value:
-              Fn::ImportValue: !Sub ${EnvironmentName}-${ServiceName}-ContaienrName
+              Fn::ImportValue: !Sub ${EnvironmentName}-${ECSServiceName}-ContaienrName
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
@@ -273,7 +273,7 @@ Resources:
             Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/
           - Name: ECS_SERVICE_NAME
             Value:
-              Fn::ImportValue: !Sub ${EnvironmentName}-ECSService
+              Fn::ImportValue: !Sub ${EnvironmentName}-${ECSServiceName}
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role

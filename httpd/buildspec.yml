@@ -7,7 +7,7 @@ phases:
             - IMAGE_URI="${REPOSITORY_URI}:${TAG}"
     build:
         commands:
-            - docker build --tag "${IMAGE_URI}" -f "${CODEBUILD_SRC_DIR}/httpd/Dockerfile"
+            - docker build --tag "${IMAGE_URI}" -f "${CODEBUILD_SRC_DIR}/httpd/Dockerfile" httpd
     post_build:
         commands:
             - docker push "${IMAGE_URI}"
