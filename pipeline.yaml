@@ -46,16 +46,16 @@ Parameters:
 
   BuildSpecPath:
     Type: String
-    Default: buildspec.yml
+    Default: nginx/buildspec.yml
 
   ECRRepoName:
     # Repository:
     Type: String
-    Default: ecs-test-repo
+    Default: mogahed-ecr-repo
 
-  ArtifatBucket:
+  ArtifatBucketName:
     Type: String
-    Default: pipeline-testing-bucket-mogahed-1
+    Default: mogahed-bucket
 
 Resources:
   #PipeLine
@@ -151,7 +151,7 @@ Resources:
   AppPipeline:
     Type: "AWS::CodePipeline::Pipeline"
     Properties:
-      Name: github-events-pipeline
+      Name: !Ref PipelineName
       ArtifactStore:
         Type: S3
         Location: !Ref ArtifatBucket
@@ -208,14 +208,14 @@ Resources:
               RunOrder: 1
 
   # s3 Artifacts
-  CodePipelineArtifactStoreBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      BucketName: !Ref ArtifatBucket
-      VersioningConfiguration:
-        Status: Enabled
+  # CodePipelineArtifactStoreBucket:
+  #   Type: AWS::S3::Bucket
+  #   DeletionPolicy: Delete
+  #   UpdateReplacePolicy: Delete
+  #   Properties:
+  #     BucketName: !Ref ArtifatBucket
+  #     VersioningConfiguration:
+  #       Status: Enabled
 
   # CodePipelineArtifactStoreBucketPolicy:
   #   Type: AWS::S3::BucketPolicy
@@ -248,7 +248,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       # BadgeEnabled: true
-      Name: !Sub ${EnvironmentName}-BuildProject
+      Name: !Sub ${EnvironmentName}-${ECSServiceName}-BuildProject
       ServiceRole: !Ref CodeBuildServiceRole
       Artifacts:
         Type: CODEPIPELINE
@@ -268,7 +268,7 @@ Resources:
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
-            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepoName}
           - Name: ECR_SERVER
             Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/
           - Name: ECS_SERVICE_NAME
@@ -304,7 +304,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:GetObjectVersion
-              - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${Repository}
+              - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepoName}
                 Effect: Allow
                 Action:
                   - ecr:GetDownloadUrlForLayer
@@ -315,9 +315,9 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
   # #ecs / ecr
-  Repository:
-    Type: AWS::ECR::Repository
-    DeletionPolicy: Delete
-    # DeletionPolicy: Retain
-    Properties:
-      RepositoryName: !Ref ECRRepoName
+  # Repository:
+  #   Type: AWS::ECR::Repository
+  #   DeletionPolicy: Delete
+  #   # DeletionPolicy: Retain
+  #   Properties:
+  #     RepositoryName: !Ref ECRRepoName
