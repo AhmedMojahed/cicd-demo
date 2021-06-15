@@ -84,6 +84,10 @@ Parameters:
     Type: String
     Default: mogahed-bucket
 
+  ListenerPriority:
+    Type: Number
+    Default: 1
+
 Resources:
   # Ecs Service
   ECSService:
@@ -99,6 +103,7 @@ Resources:
         ContainerMem: !Ref ContainerMem
         VarPath: !Ref VarPath
         DesiredCount: !Ref DesiredCount
+        ListenerPriority: !Ref ListenerPriority
 
   Pipeline:
     Type: AWS::CloudFormation::Stack
