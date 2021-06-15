@@ -53,7 +53,7 @@ Parameters:
     Type: String
     Default: mogahed-ecr-repo
 
-  ArtifatBucketName:
+  ArtifatBucket:
     Type: String
     Default: mogahed-bucket
 
