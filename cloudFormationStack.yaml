@@ -1,0 +1,116 @@
+---
+Parameters:
+  EnvironmentName:
+    Description: An Environment name that will be prefixed to resources
+    Type: String
+    Default: "Test"
+
+  ServiceName:
+    Type: String
+    Default: "nginx"
+    Description: A name for the service
+
+  ImageUrl:
+    Description: The url for the image  used to start the container
+    Type: String
+    Default: "nginx"
+
+  ContainerCpu:
+    Description: cpu core speed in MHz
+    Type: Number
+    Default: 256
+
+  ContainerMem:
+    Description: Amount of ram needed for the container
+    Type: Number
+    Default: 512
+  AppContainerPort:
+    Description: In container app port
+    Type: Number
+    Default: 80
+
+  AppHostPort:
+    Description: container mapped port in the host
+    Type: Number
+    Default: 80
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run
+
+  VarPath:
+    Type: String
+    Default: "/"
+    Description: Path for service route and healthcheck
+
+  #Pipeline
+  PipelineName:
+    Description: Name of the pipeline
+    Type: String
+    Default: test
+
+  BranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: main
+
+  RepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: cicd-demo
+
+  GithubToken:
+    Type: String
+    NoEcho: true
+
+  GithubOwner:
+    Type: String
+    Default: AhmedMojahed
+
+  # ECSServiceName:
+  #   Type: String
+  #   Default: nginx
+
+  BuildSpecPath:
+    Type: String
+    Default: nginx/buildspec.yml
+
+  ECRRepoName:
+    Type: String
+    Default: mogahed-ecr-repo
+
+  ArtifatBucketName:
+    Type: String
+    Default: mogahed-bucket
+
+Resources:
+  # Ecs Service
+  ECSService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://mogahed-bucket.s3.us-east-2.amazonaws.com/services.yml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        ServiceName: !Ref ServiceName
+        ImageUrl: !Ref ImageUrl
+        AppContainerPort: !Ref AppContainerPort
+        ContainerCpu: !Ref ContainerCpu
+        ContainerMem: !Ref ContainerMem
+        VarPath: !Ref VarPath
+        DesiredCount: !Ref DesiredCount
+
+  Pipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://mogahed-bucket.s3.us-east-2.amazonaws.com/pipeline.yaml
+      Parameters:
+        PipelineName: !Ref PipelineName
+        RepositoryName: !Ref RepositoryName
+        BranchName: !Ref BranchName
+        GithubToken: !Ref GithubToken
+        GithubOwner: !Ref GithubOwner
+        BuildSpecPath: !Ref BuildSpecPath
+        ECRRepoName: !Ref ECRRepoName
+        ECSServiceName: !GetAtt ECSService.Outputs.ECSServiceName
+        ArtifatBucket: !Ref ArtifatBucketName
