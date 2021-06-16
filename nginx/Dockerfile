@@ -1,4 +1,4 @@
 FROM nginx:1.20
 
-COPY ./default.conf /etc/nginx/conf.d/
-COPY ./nginx.html /usr/share/nginx/html/
+COPY ./default.conf /etc/nginx/conf.d/default.conf 
+COPY ./nginx.html /usr/share/nginx/html/nginx.html 
