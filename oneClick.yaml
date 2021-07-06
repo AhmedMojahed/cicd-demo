@@ -1,0 +1,151 @@
+---
+Parameters:
+  #Basic infra
+  EnvironmentName:
+    Description: An Environment name that will be prefixed to resources
+    Type: String
+    Default: "Test"
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this
+    Type: String
+    Default: "10.0.0.0/16"
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: "10.0.0.0/24"
+
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: "10.0.1.0/24"
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: "10.0.2.0/24"
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: "10.0.3.0/24"
+
+  ECRRepoName:
+    Type: String
+    Default: "mogahed-ecr-repo"
+
+  ArtifatBucketName:
+    Type: String
+    Default: "mogahed-bucket"
+  # Service
+  ServiceName:
+    Type: String
+    Default: "nginx"
+    Description: A name for the service
+
+  ImageUrl:
+    Description: The url for the image  used to start the container
+    Type: String
+    Default: "nginx"
+
+  ContainerCpu:
+    Description: cpu core speed in MHz
+    Type: Number
+    Default: 256
+
+  ContainerMem:
+    Description: Amount of ram needed for the container
+    Type: Number
+    Default: 512
+  AppContainerPort:
+    Description: In container app port
+    Type: Number
+    Default: 80
+
+  AppHostPort:
+    Description: container mapped port in the host
+    Type: Number
+    Default: 80
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run
+
+  VarPath:
+    Type: String
+    Default: "/"
+    Description: Path for service route and healthcheck
+
+  #Pipeline
+  PipelineName:
+    Description: Name of the pipeline
+    Type: String
+    Default: test-nginx
+
+  BranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: main
+
+  RepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: cicd-demo
+
+  GithubToken:
+    Type: String
+    NoEcho: true
+
+  GithubOwner:
+    Type: String
+    Default: AhmedMojahed
+
+  BuildSpecPath:
+    Type: String
+    Default: nginx/buildspec.yml
+
+  ListenerPriority:
+    Type: Number
+    Default: 1
+
+Resources:
+  BasicInfra:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://halan-test-templates.s3.us-east-2.amazonaws.com/basic-infra.yml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
+        PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
+        PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
+        PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
+        ECRRepoName: !Ref ECRRepoName
+        ArtifatBucketName: !Ref ArtifatBucketName
+
+  # Ecs Service
+  ServiceWithPipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://halan-test-templates.s3.us-east-2.amazonaws.com/cloudFormationStack.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        ServiceName: !Ref ServiceName
+        ImageUrl: !Ref ImageUrl
+        ContainerCpu: !Ref ContainerCpu
+        ContainerMem: !Ref ContainerMem
+        AppContainerPort: !Ref AppContainerPort
+        AppHostPort: !Ref AppHostPort
+        DesiredCount: !Ref DesiredCount
+        VarPath: !Ref VarPath
+        PipelineName: !Ref PipelineName
+        BranchName: !Ref BranchName
+        RepositoryName: !Ref RepositoryName
+        GithubToken: !Ref GithubToken
+        GithubOwner: !Ref GithubOwner
+        BuildSpecPath: !Ref BuildSpecPath
+        ECRRepoName: !Ref ECRRepoName
+        ListenerPriority: !Ref ListenerPriority
+        ArtifatBucketName: !Ref ArtifatBucketName
