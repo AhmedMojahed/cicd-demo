@@ -38,75 +38,76 @@ Parameters:
   ArtifatBucketName:
     Type: String
     Default: "mogahed-bucket"
-  # Service
-  ServiceName:
+
+  ## Service One Prams
+  ServiceOneName:
     Type: String
     Default: "nginx"
     Description: A name for the service
 
-  ImageUrl:
+  ServiceOneImageUrl:
     Description: The url for the image  used to start the container
     Type: String
     Default: "nginx"
 
-  ContainerCpu:
+  ServiceOneContainerCpu:
     Description: cpu core speed in MHz
     Type: Number
     Default: 256
 
-  ContainerMem:
+  ServiceOneContainerMem:
     Description: Amount of ram needed for the container
     Type: Number
     Default: 512
-  AppContainerPort:
+  ServiceOneAppContainerPort:
     Description: In container app port
     Type: Number
     Default: 80
 
-  AppHostPort:
+  ServiceOneAppHostPort:
     Description: container mapped port in the host
     Type: Number
     Default: 80
 
-  DesiredCount:
+  ServiceOneDesiredCount:
     Type: Number
     Default: 1
     Description: How many copies of the service task to run
 
-  VarPath:
+  ServiceOneVarPath:
     Type: String
     Default: "/"
     Description: Path for service route and healthcheck
 
   #Pipeline
-  PipelineName:
+  ServiceOnePipelineName:
     Description: Name of the pipeline
     Type: String
     Default: test-nginx
 
-  BranchName:
+  ServiceOneBranchName:
     Description: GitHub branch name
     Type: String
     Default: main
 
-  RepositoryName:
+  ServiceOneRepositoryName:
     Description: GitHub repository name
     Type: String
     Default: cicd-demo
 
-  GithubToken:
+  ServiceOneGithubToken:
     Type: String
     NoEcho: true
 
-  GithubOwner:
+  ServiceOneGithubOwner:
     Type: String
     Default: AhmedMojahed
 
-  BuildSpecPath:
+  ServiceOneBuildSpecPath:
     Type: String
     Default: nginx/buildspec.yml
 
-  ListenerPriority:
+  ServiceOneListenerPriority:
     Type: Number
     Default: 1
 
@@ -125,27 +126,27 @@ Resources:
         ECRRepoName: !Ref ECRRepoName
         ArtifatBucketName: !Ref ArtifatBucketName
 
-  # Ecs Service
-  ServiceWithPipeline:
+  # Services ## copy this resource > create new prams > rename new resource and prams in it
+  ServiceOneStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: https://halan-test-templates.s3.us-east-2.amazonaws.com/cloudFormationStack.yaml
       Parameters:
         EnvironmentName: !Ref EnvironmentName
-        ServiceName: !Ref ServiceName
-        ImageUrl: !Ref ImageUrl
-        ContainerCpu: !Ref ContainerCpu
-        ContainerMem: !Ref ContainerMem
-        AppContainerPort: !Ref AppContainerPort
-        AppHostPort: !Ref AppHostPort
-        DesiredCount: !Ref DesiredCount
-        VarPath: !Ref VarPath
-        PipelineName: !Ref PipelineName
-        BranchName: !Ref BranchName
-        RepositoryName: !Ref RepositoryName
-        GithubToken: !Ref GithubToken
-        GithubOwner: !Ref GithubOwner
-        BuildSpecPath: !Ref BuildSpecPath
-        ECRRepoName: !Ref ECRRepoName
-        ListenerPriority: !Ref ListenerPriority
-        ArtifatBucketName: !Ref ArtifatBucketName
+        ServiceName: !Ref ServiceOneName
+        ImageUrl: !Ref ServiceOneImageUrl
+        ContainerCpu: !Ref ServiceOneContainerCpu
+        ContainerMem: !Ref ServiceOneContainerMem
+        AppContainerPort: !Ref ServiceOneAppContainerPort
+        AppHostPort: !Ref ServiceOneAppHostPort
+        DesiredCount: !Ref ServiceOneDesiredCount
+        VarPath: !Ref ServiceOneVarPath
+        PipelineName: !Ref ServiceOnePipelineName
+        BranchName: !Ref ServiceOneBranchName
+        RepositoryName: !Ref ServiceOneRepositoryName
+        GithubToken: !Ref ServiceOneGithubToken
+        GithubOwner: !Ref ServiceOneGithubOwner
+        BuildSpecPath: !Ref ServiceOneBuildSpecPath
+        ECRRepoName: !Ref ServiceOneECRRepoName
+        ListenerPriority: !Ref ServiceOneListenerPriority
+        ArtifatBucketName: !Ref ServiceOneArtifatBucketName
