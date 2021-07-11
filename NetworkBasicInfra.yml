@@ -401,14 +401,14 @@ Resources:
             RepositoryName: !Ref ECRRepoName
 
     ## s3 bucket
-    ArtifactStoreBucket:
-        Type: AWS::S3::Bucket
-        DeletionPolicy: Delete
-        UpdateReplacePolicy: Delete
-        Properties:
-            BucketName: !Ref ArtifatBucketName
-            VersioningConfiguration:
-                Status: Enabled
+    # ArtifactStoreBucket:
+    #     Type: AWS::S3::Bucket
+    #     # DeletionPolicy: Delete
+    #     # UpdateReplacePolicy: Delete
+    #     Properties:
+    #         BucketName: !Ref ArtifatBucketName
+    #         VersioningConfiguration:
+    #             Status: Enabled
 
 Outputs:
     ExternalUrl:
@@ -513,6 +513,7 @@ Outputs:
 
     Artifact:
         Description: The name of s3 store bucket
-        Value: !Ref ArtifactStoreBucket
+        # Value: !Ref ArtifactStoreBucket
+        Value: !Ref ArtifatBucketName
         Export:
             Name: !Sub ${EnvironmentName}-ArtifactBucket

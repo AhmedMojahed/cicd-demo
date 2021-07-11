@@ -111,6 +111,78 @@ Parameters:
     Type: Number
     Default: 1
 
+  ## Service Two Prams
+  ServiceTwoName:
+    Type: String
+    Default: "httpd"
+    Description: A name for the service
+
+  ServiceTwoImageUrl:
+    Description: The url for the image  used to start the container
+    Type: String
+    Default: "httpd"
+
+  ServiceTwoContainerCpu:
+    Description: cpu core speed in MHz
+    Type: Number
+    Default: 256
+
+  ServiceTwoContainerMem:
+    Description: Amount of ram needed for the container
+    Type: Number
+    Default: 512
+  ServiceTwoAppContainerPort:
+    Description: In container app port
+    Type: Number
+    Default: 80
+
+  ServiceTwoAppHostPort:
+    Description: container mapped port in the host
+    Type: Number
+    Default: 80
+
+  ServiceTwoDesiredCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run
+
+  ServiceTwoVarPath:
+    Type: String
+    Default: "/"
+    Description: Path for service route and healthcheck
+
+  #Pipeline
+  ServiceTwoPipelineName:
+    Description: Name of the pipeline
+    Type: String
+    Default: test-httpd
+
+  ServiceTwoBranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: main
+
+  ServiceTwoRepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: cicd-demo
+
+  ServiceTwoGithubToken:
+    Type: String
+    NoEcho: true
+
+  ServiceTwoGithubOwner:
+    Type: String
+    Default: AhmedMojahed
+
+  ServiceTwoBuildSpecPath:
+    Type: String
+    Default: httpd/buildspec.yml
+
+  ServiceTwoListenerPriority:
+    Type: Number
+    Default: 2
+
 Resources:
   BasicInfra:
     Type: AWS::CloudFormation::Stack
@@ -148,5 +220,29 @@ Resources:
         GithubOwner: !Ref ServiceOneGithubOwner
         BuildSpecPath: !Ref ServiceOneBuildSpecPath
         ListenerPriority: !Ref ServiceOneListenerPriority
+        ECRRepoName: !GetAtt BasicInfra.Outputs.EcrRepo
+        ArtifatBucketName: !GetAtt BasicInfra.Outputs.Artifact
+
+  ServiceTwoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://mogahed-halan-test-templates.s3.us-east-2.amazonaws.com/ServiceWithPipeline.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        ServiceName: !Ref ServiceTwoName
+        ImageUrl: !Ref ServiceTwoImageUrl
+        ContainerCpu: !Ref ServiceTwoContainerCpu
+        ContainerMem: !Ref ServiceTwoContainerMem
+        AppContainerPort: !Ref ServiceTwoAppContainerPort
+        AppHostPort: !Ref ServiceTwoAppHostPort
+        DesiredCount: !Ref ServiceTwoDesiredCount
+        VarPath: !Ref ServiceTwoVarPath
+        PipelineName: !Ref ServiceTwoPipelineName
+        BranchName: !Ref ServiceTwoBranchName
+        RepositoryName: !Ref ServiceTwoRepositoryName
+        GithubToken: !Ref ServiceTwoGithubToken
+        GithubOwner: !Ref ServiceTwoGithubOwner
+        BuildSpecPath: !Ref ServiceTwoBuildSpecPath
+        ListenerPriority: !Ref ServiceTwoListenerPriority
         ECRRepoName: !GetAtt BasicInfra.Outputs.EcrRepo
         ArtifatBucketName: !GetAtt BasicInfra.Outputs.Artifact
