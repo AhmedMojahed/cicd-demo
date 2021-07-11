@@ -115,7 +115,7 @@ Resources:
   BasicInfra:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://halan-test-templates.s3.us-east-2.amazonaws.com/basic-infra.yml
+      TemplateURL: https://mogahed-halan-test-templates.s3.us-east-2.amazonaws.com/NetworkBasicInfra.yml
       Parameters:
         EnvironmentName: !Ref EnvironmentName
         VpcCIDR: !Ref VpcCIDR
@@ -130,7 +130,7 @@ Resources:
   ServiceOneStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://halan-test-templates.s3.us-east-2.amazonaws.com/cloudFormationStack.yaml
+      TemplateURL: https://mogahed-halan-test-templates.s3.us-east-2.amazonaws.com/ServiceWithPipeline.yaml
       Parameters:
         EnvironmentName: !Ref EnvironmentName
         ServiceName: !Ref ServiceOneName
@@ -147,6 +147,6 @@ Resources:
         GithubToken: !Ref ServiceOneGithubToken
         GithubOwner: !Ref ServiceOneGithubOwner
         BuildSpecPath: !Ref ServiceOneBuildSpecPath
-        ECRRepoName: !Ref BasicInfra.Outputs.EcrRepo
         ListenerPriority: !Ref ServiceOneListenerPriority
-        ArtifatBucketName: !Ref BasicInfra.Outputs.Artifact
+        ECRRepoName: !GetAtt BasicInfra.Outputs.EcrRepo
+        ArtifatBucketName: !GetAtt BasicInfra.Outputs.Artifact

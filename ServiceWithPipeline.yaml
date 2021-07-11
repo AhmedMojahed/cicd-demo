@@ -93,7 +93,7 @@ Resources:
   ECSService:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://mogahed-bucket.s3.us-east-2.amazonaws.com/services.yml
+      TemplateURL: https://mogahed-halan-test-templates.s3.us-east-2.amazonaws.com/ecsService.yml
       Parameters:
         EnvironmentName: !Ref EnvironmentName
         ServiceName: !Ref ServiceName
@@ -108,7 +108,7 @@ Resources:
   Pipeline:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://mogahed-bucket.s3.us-east-2.amazonaws.com/pipeline.yaml
+      TemplateURL: https://mogahed-halan-test-templates.s3.us-east-2.amazonaws.com/pipeline.yaml
       Parameters:
         PipelineName: !Ref PipelineName
         RepositoryName: !Ref RepositoryName
