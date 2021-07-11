@@ -1,0 +1,197 @@
+---
+Parameters:
+  EnvironmentName:
+    Description: An Environment name that will be prefixed to resources
+    Type: String
+    Default: "Test"
+
+  ServiceName:
+    Type: String
+    Default: "nginx"
+    Description: A name for the service
+
+  ImageUrl:
+    Description: The url for the image  used to start the container
+    Type: String
+    Default: "nginx"
+  ContainerCpu:
+    Description: cpu core speed in MHz
+    Type: Number
+    Default: 256
+
+  ContainerMem:
+    Description: Amount of ram needed for the container
+    Type: Number
+    Default: 512
+  AppContainerPort:
+    Description: In container app port
+    Type: Number
+    Default: 80
+
+  AppHostPort:
+    Description: container mapped port in the host
+    Type: Number
+    Default: 80
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run
+
+  VarPath:
+    Type: String
+    Default: "/"
+    Description: Path for service route and healthcheck
+
+  ListenerPriority:
+    Type: Number
+    Default: 1
+
+  # ContainerName:
+  #   Description: A Name for the container
+  #   Type: String
+  #   Default: "WebApp"
+  # ListenerPort:
+  #   Type: Number
+  #   Default: 80
+  #   Description: Listener Port for each service
+  # ContaienrEntryPoint:
+  #   Description: container EntryPoint
+  #   Type: String
+  #   Default: "/usr/sbin/apache2,D,FOREGROUND"
+  # SourceVolumeMP:
+  #   Description: The url for the image  used to start the container
+  #   Type: String
+  #   Default: "my-vol"
+  # ContainerPathMP:
+  #   Description: The url for the image  used to start the container
+  #   Type: String
+  #   Default: "/var/www/my-vol"
+  # TargetGroupName:
+  #   Type: String
+  #   Default: "nginx-TG"
+  #   Description: A name for the service Target Group
+
+Resources:
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Ref ServiceName
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Join ["-", [!Ref "ServiceName", "container"]]
+          ContainerPort: !Ref "AppContainerPort"
+          TargetGroupArn: !Ref ECSTG
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-ECS-SG
+          Subnets:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-PRI1-SN
+            - Fn::ImportValue: !Sub ${EnvironmentName}-PRI2-SN
+      Cluster:
+        Fn::ImportValue: !Sub "${EnvironmentName}-ECS-CLUSTER"
+      # Role:
+      #   Fn::ImportValue: !Sub ${EnvironmentName}-ECSRole
+      TaskDefinition: !Ref "ECSTaskDefinition"
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref "ServiceName"
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Memory: !Ref ContainerMem
+      Cpu: !Ref ContainerCpu
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ECSTaskExecutionRole
+      # TaskRoleArn:
+      #   Fn::ImportValue: !Sub ${EnvironmentName}-ECSTaskExecutionRole
+      ContainerDefinitions:
+        - Name: !Join ["-", [!Ref "ServiceName", "container"]]
+          Image: !Ref ImageUrl
+          Memory: !Ref ContainerMem
+          Cpu: !Ref ContainerCpu
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref "AppContainerPort"
+              HostPort: !Ref "AppHostPort"
+          # MountPoints:
+          #   - SourceVolume: !Ref SourceVolumeMP
+          #     ContainerPath: !Ref ContainerPathMP
+          # EntryPoint:
+          #   Fn::Split:
+          #     - ","
+          #     - !Ref ContaienrEntryPoint
+      # Volumes:
+      #   - Name: !Ref SourceVolumeMP
+
+  # MyLoadBalancerListener:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     LoadBalancerArn:
+  #       Fn::ImportValue: !Sub ${EnvironmentName}-ALB
+  #     Port: 80
+  #     Protocol: HTTP
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ECSTG
+
+  MyLoadBalancerListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ALB-listener
+      Priority: !Ref ListenerPriority
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ECSTG
+      Conditions:
+        - Field: path-pattern
+          Values: [!Ref VarPath]
+
+  ECSTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: !Ref VarPath
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Name: !Join ["-", [!Ref "ServiceName", "target-group"]]
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-VPCID
+
+Outputs:
+  ECSService:
+    Description: Information about the value
+    Value: !Ref ECSService
+    Export:
+      Name: !Sub ${EnvironmentName}-${ServiceName}
+
+  ECSServiceName:
+    Value: !Ref ServiceName
+
+  ECSTG:
+    Description: A reference to target groups
+    Value: !Ref ECSTG
+    Export:
+      Name: !Sub ${EnvironmentName}-${ServiceName}-TG
+
+  ECSTaskDefinitionArn:
+    Description: A reference to ECSTaskDefinition Arn
+    Value: !Ref ECSTaskDefinition
+    Export:
+      Name: !Sub ${EnvironmentName}-${ServiceName}-TD-Arn
+
+  ServiceContainerName:
+    Description: A reference to ECSTaskDefinition Arn
+    Value: !Join ["-", [!Ref "ServiceName", "container"]]
+    Export:
+      Name: !Sub ${EnvironmentName}-${ServiceName}-ContaienrName

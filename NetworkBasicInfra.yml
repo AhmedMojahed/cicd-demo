@@ -1,0 +1,518 @@
+---
+Parameters:
+    EnvironmentName:
+        Description: An Environment name that will be prefixed to resources
+        Type: String
+
+    VpcCIDR:
+        Description: Please enter the IP range (CIDR notation) for this
+        Type: String
+        Default: 10.0.0.0/16
+
+    PublicSubnet1CIDR:
+        Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+        Type: String
+        Default: 10.0.0.0/24
+
+    PublicSubnet2CIDR:
+        Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+        Type: String
+        Default: 10.0.1.0/24
+
+    PrivateSubnet1CIDR:
+        Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+        Type: String
+        Default: 10.0.2.0/24
+
+    PrivateSubnet2CIDR:
+        Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+        Type: String
+        Default: 10.0.3.0/24
+
+    ECRRepoName:
+        Type: String
+        Default: mogahed-ecr-repo
+
+    ArtifatBucketName:
+        Type: String
+        Default: mogahed-bucket
+
+Resources:
+    VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: !Ref VpcCIDR
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+    VPCGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            InternetGatewayId:
+                Ref: InternetGateway
+            VpcId:
+                Ref: VPC
+
+    PublicSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone:
+                Fn::Select:
+                    - 0
+                    - Fn::GetAZs: { Ref: "AWS::Region" }
+            VpcId:
+                Ref: VPC
+            CidrBlock: !Ref PublicSubnet1CIDR
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+    PublicSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone:
+                Fn::Select:
+                    - 1
+                    - Fn::GetAZs: { Ref: "AWS::Region" }
+            VpcId:
+                Ref: VPC
+            CidrBlock: !Ref PublicSubnet2CIDR
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+    PrivateSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId:
+                Ref: VPC
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet1CIDR
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+    PrivateSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId:
+                Ref: VPC
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet2CIDR
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+    NatGateway1EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: VPCGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway2EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: VPCGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway1:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGateway1EIP.AllocationId
+            SubnetId:
+                Ref: PublicSubnet1
+
+    NatGateway2:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGateway2EIP.AllocationId
+            SubnetId:
+                Ref: PublicSubnet2
+
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId:
+                Ref: VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Routes
+
+    DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: VPCGatewayAttachment
+        Properties:
+            RouteTableId:
+                Ref: PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId:
+                Ref: InternetGateway
+
+    PublicSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId:
+                Ref: PublicRouteTable
+            SubnetId:
+                Ref: PublicSubnet1
+
+    PublicSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId:
+                Ref: PublicRouteTable
+            SubnetId:
+                Ref: PublicSubnet2
+
+    PrivateRouteTable1:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId:
+                Ref: VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+    DefaultPrivateRoute1:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId:
+                Ref: PrivateRouteTable1
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId:
+                Ref: NatGateway1
+
+    PrivateSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId:
+                Ref: PrivateRouteTable1
+            SubnetId:
+                Ref: PrivateSubnet1
+
+    PrivateRouteTable2:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId:
+                Ref: VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+
+    DefaultPrivateRoute2:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId:
+                Ref: PrivateRouteTable2
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId:
+                Ref: NatGateway2
+
+    PrivateSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId:
+                Ref: PrivateRouteTable2
+            SubnetId:
+                Ref: PrivateSubnet2
+
+    ## LoadBalancer
+    MyLoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Name: test-ALB
+            Scheme: internet-facing
+            SecurityGroups:
+                - Ref: MyLoadBalancerSecGroup
+            Subnets:
+                - Ref: PublicSubnet1
+                - Ref: PublicSubnet2
+            Type: application
+
+    MyLoadBalancerListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            LoadBalancerArn: !Ref MyLoadBalancer
+            Port: "80"
+            Protocol: HTTP
+            DefaultActions:
+                - Type: forward
+                  TargetGroupArn: !Ref DummyTargetGroupPublic
+
+    DummyTargetGroupPublic:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 6
+            HealthCheckPath: /
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 5
+            HealthyThresholdCount: 2
+            TargetType: ip
+            TargetGroupAttributes:
+                - Key: deregistration_delay.timeout_seconds
+                  Value: "0"
+            Name: DummyTargetGroup
+            Port: 80
+            Protocol: HTTP
+            UnhealthyThresholdCount: 2
+            VpcId: !Ref "VPC"
+    # MyLoadBalancerListenerRule:
+    #     Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    #     Properties:
+    #         ListenerArn: !Ref MyLoadBalancerListener
+    #         Priority: 1
+    #         Actions:
+    #             - Type: forward
+    #               TargetGroupArn: !Ref ECSTG
+    #         Conditions:
+    #             - Field: path-pattern
+    #               Values: [/]
+
+    # ECSTG:
+    #     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    #     Properties:
+    #         HealthCheckIntervalSeconds: 10
+    #         HealthCheckPath: /
+    #         HealthCheckProtocol: HTTP
+    #         HealthCheckTimeoutSeconds: 5
+    #         HealthyThresholdCount: 2
+    #         Name: ECSTG
+    #         Port: 80
+    #         Protocol: HTTP
+    #         UnhealthyThresholdCount: 2
+    #         TargetType: ip
+    #         VpcId: !Ref "VPC"
+
+    MyLoadBalancerSecGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: Access to the public facing load balancer
+            VpcId: !Ref "VPC"
+            SecurityGroupIngress:
+                # Allow access to ALB from anywhere on the internet
+                - CidrIp: 0.0.0.0/0
+                  IpProtocol: -1
+
+    EcsSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: ECS Security Group
+            VpcId: !Ref VPC
+
+    EcsSecurityGroupIngressFromPublicALB:
+        Type: AWS::EC2::SecurityGroupIngress
+        Properties:
+            Description: Ingress from the public ALB
+            GroupId: !Ref "EcsSecurityGroup"
+            IpProtocol: -1
+            SourceSecurityGroupId: !Ref "MyLoadBalancerSecGroup"
+    EcsSecurityGroupIngressFromSelf:
+        Type: AWS::EC2::SecurityGroupIngress
+        Properties:
+            Description: Ingress from other containers in the same security group
+            GroupId: !Ref "EcsSecurityGroup"
+            IpProtocol: -1
+            SourceSecurityGroupId: !Ref "EcsSecurityGroup"
+
+    # ecs roles
+    ECSRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: [ecs.amazonaws.com]
+                      Action: ["sts:AssumeRole"]
+            Path: /
+            Policies:
+                - PolicyName: ecs-service
+                  PolicyDocument:
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                # Rules which allow ECS to attach network interfaces to instances
+                                # on your behalf in order for awsvpc networking mode to work right
+                                - "ec2:AttachNetworkInterface"
+                                - "ec2:CreateNetworkInterface"
+                                - "ec2:CreateNetworkInterfacePermission"
+                                - "ec2:DeleteNetworkInterface"
+                                - "ec2:DeleteNetworkInterfacePermission"
+                                - "ec2:Describe*"
+                                - "ec2:DetachNetworkInterface"
+
+                                # Rules which allow ECS to update load balancers on your behalf
+                                # with the information sabout how to send traffic to your containers
+                                - "elasticloadbalancing:DeregisterInstancesFromLoadBalancer"
+                                - "elasticloadbalancing:DeregisterTargets"
+                                - "elasticloadbalancing:Describe*"
+                                - "elasticloadbalancing:RegisterInstancesWithLoadBalancer"
+                                - "elasticloadbalancing:RegisterTargets"
+                            Resource: "*"
+
+    # This is a role which is used by the ECS tasks themselves.
+    ECSTaskExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: [ecs-tasks.amazonaws.com]
+                      Action: ["sts:AssumeRole"]
+            Path: /
+            Policies:
+                - PolicyName: AmazonECSTaskExecutionRolePolicy
+                  PolicyDocument:
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                # Allow the ECS Tasks to download images from ECR
+                                # - "ecr:*"
+                                - "ecr:GetAuthorizationToken"
+                                - "ecr:BatchCheckLayerAvailability"
+                                - "ecr:GetDownloadUrlForLayer"
+                                - "ecr:BatchGetImage"
+
+                                # Allow the ECS tasks to upload logs to CloudWatch
+                                - "logs:CreateLogStream"
+                                - "logs:PutLogEvents"
+                            Resource: "*"
+
+    ## Ecs cluster
+    ECSCluster:
+        Type: "AWS::ECS::Cluster"
+        Properties:
+            ClusterName: test-cluster
+
+    ## Ecr Repo
+    EcrRepository:
+        Type: AWS::ECR::Repository
+        DeletionPolicy: Delete
+        # DeletionPolicy: Retain
+        Properties:
+            RepositoryName: !Ref ECRRepoName
+
+    ## s3 bucket
+    ArtifactStoreBucket:
+        Type: AWS::S3::Bucket
+        DeletionPolicy: Delete
+        UpdateReplacePolicy: Delete
+        Properties:
+            BucketName: !Ref ArtifatBucketName
+            VersioningConfiguration:
+                Status: Enabled
+
+Outputs:
+    ExternalUrl:
+        Description: The url of the external load balancer
+        Value: !Join ["", ["http://", !GetAtt "MyLoadBalancer.DNSName"]]
+        Export:
+            Name: !Sub ${EnvironmentName}-ExternalUrl
+    ECSRole:
+        Description: The ARN of the ECS role
+        Value: !GetAtt "ECSRole.Arn"
+        Export:
+            Name: !Sub ${EnvironmentName}-ECSRole
+    ECSTaskExecutionRole:
+        Description: The ARN of the ECS role
+        Value: !GetAtt "ECSTaskExecutionRole.Arn"
+        Export:
+            Name: !Sub ${EnvironmentName}-ECSTaskExecutionRole
+
+    VPC:
+        Description: A reference to the created VPC
+        Value: !Ref VPC
+        Export:
+            Name: !Sub ${EnvironmentName}-VPCID
+
+    VPCPublicRouteTable:
+        Description: Public Routing
+        Value: !Ref PublicRouteTable
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB-RT
+
+    VPCPrivateRouteTable1:
+        Description: Private Routing AZ1
+        Value: !Ref PrivateRouteTable1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI1-RT
+
+    VPCPrivateRouteTable2:
+        Description: Private Routing AZ2
+        Value: !Ref PrivateRouteTable2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI2-RT
+
+    PublicSubnet1:
+        Description: A reference to the public subnet in the 1st Availability Zone
+        Value: !Ref PublicSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB1-SN
+
+    PublicSubnet2:
+        Description: A reference to the public subnet in the 2nd Availability Zone
+        Value: !Ref PublicSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB2-SN
+
+    PrivateSubnet1:
+        Description: A reference to the private subnet in the 1st Availability Zone
+        Value: !Ref PrivateSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI1-SN
+
+    PrivateSubnet2:
+        Description: A reference to the private subnet in the 2nd Availability Zone
+        Value: !Ref PrivateSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI2-SN
+
+    ECSCluster:
+        Description: reference to ecs cluster
+        Value: !Ref ECSCluster
+        Export:
+            Name: !Sub ${EnvironmentName}-ECS-CLUSTER
+
+    # ECSTG:
+    #     Description: A reference to target groups
+    #     Value: !Ref ECSTG
+    #     Export:
+    #         Name: !Sub ${EnvironmentName}-ECS-TG
+
+    EcsSecurityGroup:
+        Description: A reference to ecs SecurityGroup
+        Value: !Ref EcsSecurityGroup
+        Export:
+            Name: !Sub ${EnvironmentName}-ECS-SG
+
+    MyLoadBalancer:
+        Description: the name of LoadBalancer
+        Value: !Ref MyLoadBalancer
+        Export:
+            Name: !Sub ${EnvironmentName}-ALB
+
+    MyLoadBalancerListener:
+        Description: the name of LoadBalancer
+        Value: !Ref MyLoadBalancerListener
+        Export:
+            Name: !Sub ${EnvironmentName}-ALB-listener
+
+    EcrRepo:
+        Description: The Name of ecr repository
+        Value: !Ref EcrRepository
+        Export:
+            Name: !Sub ${EnvironmentName}-ECR-Repo
+
+    Artifact:
+        Description: The name of s3 store bucket
+        Value: !Ref ArtifactStoreBucket
+        Export:
+            Name: !Sub ${EnvironmentName}-ArtifactBucket
