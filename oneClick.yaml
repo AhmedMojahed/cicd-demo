@@ -147,6 +147,6 @@ Resources:
         GithubToken: !Ref ServiceOneGithubToken
         GithubOwner: !Ref ServiceOneGithubOwner
         BuildSpecPath: !Ref ServiceOneBuildSpecPath
-        ECRRepoName: !Ref ServiceOneECRRepoName
+        ECRRepoName: !Ref BasicInfra.Outputs.EcrRepo
         ListenerPriority: !Ref ServiceOneListenerPriority
-        ArtifatBucketName: !Ref ServiceOneArtifatBucketName
+        ArtifatBucketName: !Ref BasicInfra.Outputs.Artifact
